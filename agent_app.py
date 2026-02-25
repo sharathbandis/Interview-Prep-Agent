@@ -10,12 +10,13 @@ st.set_page_config(page_title="Interview Prep Agent", page_icon="💼")
 st.title("💼 Autonomous Interview Prep Agent")
 st.caption("Give me a company, and I will research their latest news and tech stack for your interview.")
 
-# Build a secure sidebar for API Keys
-with st.sidebar:
-    st.header("🔑 API Keys")
-    groq_api_key = st.text_input("Groq API Key", type="password")
-    tavily_api_key = st.text_input("Tavily Search API Key", type="password")
-    st.markdown("*(These keys are not saved anywhere. They only exist while this tab is open).*")
+# Securely pull API keys from Streamlit Cloud Secrets
+try:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+    os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
+except KeyError:
+    st.error("🚨 Secret keys not found! Please add them to the Streamlit Cloud settings.")
+    st.stop()
 
 # The main input box
 company_name = st.text_input("Which company are you interviewing with?")
@@ -23,23 +24,16 @@ company_name = st.text_input("Which company are you interviewing with?")
 # When the user clicks the button, the Agent wakes up
 if st.button("Generate Interview Cheat Sheet"):
     
-    # Safety checks
-    if not groq_api_key or not tavily_api_key:
-        st.warning("⚠️ Please enter both API keys in the sidebar first!")
-    elif not company_name:
+    if not company_name:
         st.warning("⚠️ Please enter a company name!")
     else:
-        # Load the keys into the environment
-        os.environ["GROQ_API_KEY"] = groq_api_key
-        os.environ["TAVILY_API_KEY"] = tavily_api_key
-
-        with st.spinner(f"Agent is searching the live internet for {company_name}..."):
+        with st.spinner(f"Agent is autonomously researching {company_name}..."):
             try:
-                # 1. Give the Agent its "Eyes" (Tavily Search Tool)
+                # 1. Give the Agent its "Eyes"
                 search_tool = TavilySearchResults(max_results=3)
                 tools = [search_tool]
 
-                # 2. Give the Agent its new "Brain" (Groq running Meta's Llama 3)
+                # 2. Give the Agent its "Brain"
                 llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0)
 
                 # 3. Give the Agent its "Instructions"
@@ -56,7 +50,7 @@ if st.button("Generate Interview Cheat Sheet"):
                 # 5. Execute the Agent!
                 response = agent_executor.invoke({"company": company_name})
                 
-                # Display the results on the web page
+                # Display the results
                 st.success("Research Complete!")
                 st.markdown(response["output"])
                 
